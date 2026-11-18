@@ -1,5 +1,8 @@
 #!/bin/bash
 # Builds "Twist Caller.app" next to this script.
+#
+#   ./build.sh            build for this Mac, signed with your certificate if you have one
+#   RELEASE=1 ./build.sh  build for distribution: Apple silicon + Intel, ad-hoc signed
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -20,7 +23,17 @@ cp "$ICONSET/base.png" AppIcon.png
 rm "$ICONSET/base.png"
 iconutil -c icns "$ICONSET" -o "$APP/Contents/Resources/AppIcon.icns"
 
-swiftc -O -parse-as-library main.swift -o "$APP/Contents/MacOS/TwistCaller"
+# Target macOS 13 explicitly; otherwise the binary requires the build machine's OS version.
+BIN="$APP/Contents/MacOS/TwistCaller"
+if [ "${RELEASE:-}" = 1 ]; then
+    TMP="$(mktemp -d)"
+    for arch in arm64 x86_64; do
+        swiftc -O -parse-as-library -target "$arch-apple-macos13.0" main.swift -o "$TMP/$arch"
+    done
+    lipo -create "$TMP/arm64" "$TMP/x86_64" -output "$BIN"
+else
+    swiftc -O -parse-as-library -target "$(uname -m)-apple-macos13.0" main.swift -o "$BIN"
+fi
 
 cat > "$APP/Contents/Info.plist" <<'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -45,7 +58,11 @@ EOF
 
 # Sign with this Mac's code-signing certificate when there is one, so macOS
 # keeps the microphone/speech permissions across rebuilds. Otherwise ad-hoc.
-IDENTITY="$(security find-identity -v -p codesigning | awk '/^ *1\)/ {print $2}')"
+# Release builds are always ad-hoc, so a personal certificate isn't shipped in them.
+IDENTITY=""
+if [ "${RELEASE:-}" != 1 ]; then
+    IDENTITY="$(security find-identity -v -p codesigning | awk '/^ *1\)/ {print $2}')"
+fi
 if [ -n "$IDENTITY" ] && codesign --force --sign "$IDENTITY" "$APP"; then
     echo "Signed with certificate $IDENTITY"
 else

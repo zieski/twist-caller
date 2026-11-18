@@ -39,6 +39,12 @@ Recognition runs on-device where the Mac supports it.
 | → | Next move now |
 | ⌘R | Reset |
 
+## Download
+
+Grab `Twist-Caller.zip` from the [latest release](https://github.com/zieski/twist-caller/releases/latest), unzip it, and drag `Twist Caller.app` into `/Applications`. It runs on Apple silicon and Intel Macs with macOS 13 or later.
+
+The app is not notarized by Apple, so macOS will refuse to open it the first time. Try to open it once, then go to **System Settings › Privacy & Security** and click **Open Anyway**.
+
 ## Build and run
 
 Requires macOS 13 or later and the Xcode command line tools (`xcode-select --install`). There is no Xcode project; one script compiles the single Swift file and assembles the app bundle.
@@ -49,6 +55,8 @@ open "Twist Caller.app"
 ```
 
 To install it, drag `Twist Caller.app` into `/Applications`.
+
+`RELEASE=1 ./build.sh` produces the distributable build instead: Apple silicon and Intel in one binary, ad-hoc signed.
 
 The build signs the app with the first code-signing certificate in your keychain, if you have one, so macOS remembers the microphone permission across rebuilds. Without one it signs ad-hoc, and macOS will ask for permission again after each rebuild.
 
@@ -67,6 +75,10 @@ The screenshots above are rendered by the app itself:
 ```
 
 Setting the `TWIST_LOG` environment variable to a file path makes the app log what the speech recognizer hears, which helps when a command isn't being picked up.
+
+## License
+
+[MIT](LICENSE)
 
 ---
 
