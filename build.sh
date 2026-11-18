@@ -23,6 +23,8 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
     <key>CFBundleVersion</key><string>1</string>
     <key>LSMinimumSystemVersion</key><string>13.0</string>
     <key>NSHighResolutionCapable</key><true/>
+    <key>NSMicrophoneUsageDescription</key><string>Twist Caller listens for voice commands like "next" and "stop".</string>
+    <key>NSSpeechRecognitionUsageDescription</key><string>Twist Caller recognizes spoken commands like "next" and "stop".</string>
 </dict>
 </plist>
 EOF
