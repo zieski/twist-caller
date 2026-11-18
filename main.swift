@@ -149,6 +149,14 @@ final class Game: ObservableObject {
         }
     }
 
+    /// Puts the game in a fixed state without speaking, for README screenshots.
+    func stage(positions: [Limb: Spot], current: Move, remaining: Double) {
+        self.positions = positions
+        self.current = current
+        self.remaining = remaining
+        isRunning = true
+    }
+
     private func tick() {
         let now = Date()
         remaining -= now.timeIntervalSince(lastTick)
@@ -370,9 +378,13 @@ final class VoiceControl: ObservableObject {
 // MARK: - Views
 
 struct ContentView: View {
-    @StateObject private var game = Game()
+    @StateObject private var game: Game
     @StateObject private var voice = VoiceControl()
     @AppStorage("voiceCommands") private var voiceCommands = true
+
+    init(game: @autoclosure @escaping () -> Game = Game()) {
+        _game = StateObject(wrappedValue: game())
+    }
 
     var body: some View {
         HStack(alignment: .bottom, spacing: 24) {
@@ -393,6 +405,10 @@ struct ContentView: View {
         .padding(24)
         .frame(minWidth: 760, minHeight: 520)
         .onAppear {
+            if screenshotDirectory != nil {
+                voice.status = "Listening"
+                return
+            }
             voice.onCommand = { [weak game] in game?.perform($0) }
             voice.setEnabled(voiceCommands)
         }
@@ -561,6 +577,50 @@ struct TwistCallerApp: App {
     }
 }
 
+// MARK: - Screenshots
+
+/// `TwistCaller --screenshot <dir>` renders the window to PNGs in <dir> and quits.
+/// Used to produce the pictures in the README.
+let screenshotDirectory: String? = {
+    let args = CommandLine.arguments
+    guard let i = args.firstIndex(of: "--screenshot"), i + 1 < args.count else { return nil }
+    return args[i + 1]
+}()
+
+enum Screenshots {
+    static func renderAll(into directory: String) {
+        render(Game(), to: directory + "/ready.png")
+
+        let playing = Game()
+        playing.interval = 10
+        playing.stage(positions: [.leftHand: .blue, .rightHand: .green, .leftFoot: .red, .rightFoot: .yellow],
+                      current: Move(limb: .rightHand, spot: .green), remaining: 6.4)
+        render(playing, to: directory + "/playing.png")
+    }
+
+    private static func render(_ game: Game, to path: String) {
+        let size = NSSize(width: 1060, height: 740)
+        let host = NSHostingView(rootView: ContentView(game: game).frame(width: size.width, height: size.height))
+        let window = NSWindow(contentRect: NSRect(x: -5000, y: -5000, width: size.width, height: size.height),
+                              styleMask: [.borderless], backing: .buffered, defer: false)
+        window.appearance = NSAppearance(named: .darkAqua)
+        window.contentView = host
+        window.orderFrontRegardless()
+        RunLoop.main.run(until: Date().addingTimeInterval(1.0))
+        guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { return }
+        host.cacheDisplay(in: host.bounds, to: rep)
+        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
+        window.close()
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        guard let directory = screenshotDirectory else { return }
+        NSApp.windows.forEach { $0.orderOut(nil) }
+        Screenshots.renderAll(into: directory)
+        exit(0)
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 }
