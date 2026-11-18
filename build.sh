@@ -43,5 +43,13 @@ cat > "$APP/Contents/Info.plist" <<'EOF'
 </plist>
 EOF
 
-codesign --force --sign - "$APP" >/dev/null 2>&1 || true
+# Sign with this Mac's code-signing certificate when there is one, so macOS
+# keeps the microphone/speech permissions across rebuilds. Otherwise ad-hoc.
+IDENTITY="$(security find-identity -v -p codesigning | awk '/^ *1\)/ {print $2}')"
+if [ -n "$IDENTITY" ] && codesign --force --sign "$IDENTITY" "$APP"; then
+    echo "Signed with certificate $IDENTITY"
+else
+    codesign --force --sign - "$APP"
+    echo "Signed ad-hoc"
+fi
 echo "Built $APP"
